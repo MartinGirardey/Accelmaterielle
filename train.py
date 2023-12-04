@@ -1,5 +1,5 @@
 # Import the necessary packages
-from model_pyimagesearch.dataset import SegmentationBinaryDataset
+from model_pyimagesearch.dataset import SegmentationBinaryDataset, SegmentationMulticlassDataset
 from model_pyimagesearch.UNet import UNet
 from model_pyimagesearch import config
 from torch.nn import BCEWithLogitsLoss
@@ -37,22 +37,31 @@ if __name__ == '__main__':
     f = open(config.MULTICLASS_TEST_PATHS, "w")
     f.write("\n".join(testImages))
     f.close()
-    #
-    # # Define transformations
-    # transforms = transforms.Compose([transforms.ToPILImage(),
-    #                                  transforms.Resize((config.INPUT_IMAGE_HEIGHT, config.INPUT_IMAGE_WIDTH),
-    #                                                    interpolation=transforms.InterpolationMode.NEAREST),
-    #                                  transforms.ToTensor()])
-    #
-    # # Create the train and test datasets
-    # # trainDS = SegmentationBinaryDataset(imagePaths=trainImages, maskPaths=trainMasks, transforms=transforms,
-    # #                               maskThreshold=config.MASK_THRESHOLD)
-    # # testDS = SegmentationBinaryDataset(imagePaths=testImages, maskPaths=testMasks, transforms=transforms,
-    # #                              maskThreshold=config.MASK_THRESHOLD)
-    #
-    # print(f"[INFO] found {len(trainDS)} examples in the training set...")
-    # print(f"[INFO] found {len(testDS)} examples in the test set...")
-    #
+
+    # Define transformations
+    transforms = transforms.Compose([transforms.ToPILImage(),
+                                     transforms.Resize((config.INPUT_IMAGE_HEIGHT, config.INPUT_IMAGE_WIDTH),
+                                                       interpolation=transforms.InterpolationMode.NEAREST),
+                                     transforms.ToTensor()])
+
+    # Create the train and test datasets
+    # trainDS = SegmentationBinaryDataset(imagePaths=trainImages, maskPaths=trainMasks, transforms=transforms)
+    # testDS = SegmentationBinaryDataset(imagePaths=testImages, maskPaths=testMasks, transforms=transforms)
+    trainDS = SegmentationMulticlassDataset(imagePaths=trainImages, maskPaths=trainMasks, transforms=transforms)
+    testDS = SegmentationMulticlassDataset(imagePaths=testImages, maskPaths=testMasks, transforms=transforms)
+
+    print(f"[INFO] found {len(trainDS)} examples in the training set...")
+    print(f"[INFO] found {len(testDS)} examples in the test set...")
+
+    image, mask = trainDS[0]
+
+    plt.subplot(2,3,1)
+    plt.imshow(image.swapdims(0,1).swapdims(1,2))
+    for i in range(5):
+        plt.subplot(2,3,i+2)
+        plt.imshow(mask[i].swapdims(0,1).swapdims(1,2))
+    plt.show()
+
     # trainBatches = len(trainDS) // config.BATCH_SIZE + min(1, len(trainDS) % config.BATCH_SIZE)
     # testBatches = len(testDS) // config.BATCH_SIZE + min(1, len(testDS) % config.BATCH_SIZE)
     #
