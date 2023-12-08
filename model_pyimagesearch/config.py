@@ -3,7 +3,7 @@ import torch
 import os
 
 # Base path of the dataset
-BINARY_DATASET_PATH = "dataset/binary_dataset/binary_dataset"
+BINARY_DATASET_PATH = "dataset/binary_dataset/binary_dataset_small"
 MULTICLASS_DATASET_PATH = "dataset/classes_dataset/classes_dataset"
 
 # Define the path to the images and masks dataset
@@ -22,11 +22,19 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 PIN_MEMORY = True if DEVICE == "cuda" else False
 
 # Define the size of the encoder and decoder channels
-ENCODER_CHANNELS = (3, 64, 128, 256, 512)
-DECODER_CHANNELS = (512, 256, 128, 64)
+# 3min25s/epoch on small binary dataset
+# ENCODER_CHANNELS = (3, 64, 128, 256, 512)
+# DECODER_CHANNELS = (512, 256, 128, 64)
+#
+ENCODER_CHANNELS = (3, 64, 128, 256)
+DECODER_CHANNELS = (256, 128, 64)
+# 40s/epoch on small binary dataset | 3min10s/epoch on multiclass dataset
+# ENCODER_CHANNELS = (3, 16, 32, 64)
+# DECODER_CHANNELS = (64, 32, 16)
+NB_CLASSES = 5
 
 # Initialize learning rate, number of epochs to train for, and the batch size
-INIT_LR = 0.004
+INIT_LR = 0.002
 NUM_EPOCHS = 30
 BATCH_SIZE = 64
 
@@ -35,10 +43,12 @@ INPUT_IMAGE_WIDTH = int(960/2)
 INPUT_IMAGE_HEIGHT = int(736/2)
 
 # Mask values
-MASK_VALUES = ()
+# DICT_MASKS = {"obstacles":0, "water":1, "soft-surfaces":2, "moving_objects":3, "landing-zones":4}
+MASK_VALUES = (89, 106, 184, 104, 169)
 
 # Define threshold to filter weak predictions
 PRED_THRESHOLD = 0.5
+PRED_THRESHOLDS_MULTI = (0.5, 0.5, 0.5, 0.5, 0.5)
 
 # Define the path to the base output directory
 BASE_OUTPUT = "output"

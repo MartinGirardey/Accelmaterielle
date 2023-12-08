@@ -59,6 +59,7 @@ class SegmentationMulticlassDataset(Dataset):
 		mask = [np.zeros((mono_mask.shape[0], mono_mask.shape[1])) for i in range(len(self.classValues))]
 		for i in range(len(self.classValues)):
 			mask[i] = (mono_mask == self.classValues[i]) * self.classValues[i]
+			mask[i] = mask[i].astype(np.uint8)
 
 		# Check to see if we are applying any transformations
 		if self.transforms is not None:
@@ -66,6 +67,7 @@ class SegmentationMulticlassDataset(Dataset):
 			image = self.transforms(image)
 			for i in range(len(self.classValues)):
 				mask[i] = self.transforms(mask[i])
+			mask = torch.cat(mask, dim=0)
 
 		# Return a tuple of the image and its mask
 		return (image, mask)
