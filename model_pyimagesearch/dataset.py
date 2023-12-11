@@ -55,15 +55,12 @@ class SegmentationMulticlassDataset(Dataset):
 		# image = cv2.imread(imagePath)
 		# image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 		# mono_mask = cv2.imread(self.maskPaths[idx], 0)
-		image = torchvision.io.read_image(imagePath)
-		print(image.size())
-		mono_mask = torchvision.io.read_image(self.maskPaths[idx])
-		print(mono_mask.size())
+		image = torchvision.io.read_image(imagePath) / 255.
+		mono_mask = torchvision.io.read_image(self.maskPaths[idx], torchvision.io.ImageReadMode.GRAY)
 		mask = [torch.zeros((mono_mask.shape[0], mono_mask.shape[1])) for i in range(len(self.classValues))]
 
 		for i in range(len(self.classValues)):
-			mask[i] = (mono_mask == self.classValues[i]) * 255
-			mask[i] = mask[i].type_as(np.uint8)
+			mask[i] = (mono_mask == self.classValues[i]).type(torch.FloatTensor)
 
 		# Check to see if we are applying any transformations
 		if self.transforms is not None:
