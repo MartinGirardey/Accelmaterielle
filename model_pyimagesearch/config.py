@@ -2,9 +2,13 @@
 import torch
 import os
 
+# Is the training binary
+TRAINING_TYPE = "BINARY"
+# TRAINING_TYPE = "MULTICLASS"
+
 # Base path of the dataset
 BINARY_DATASET_PATH = "dataset/binary_dataset/binary_dataset_small"
-MULTICLASS_DATASET_PATH = "dataset/classes_dataset/classes_dataset"
+MULTICLASS_DATASET_PATH = "dataset/classes_dataset/classes_dataset_small"
 
 # Define the path to the images and masks dataset
 IMAGE_BINARY_DATASET_PATH = os.path.join(BINARY_DATASET_PATH, "original_images")
@@ -26,17 +30,20 @@ PIN_MEMORY = True if DEVICE == "cuda" else False
 # ENCODER_CHANNELS = (3, 64, 128, 256, 512)
 # DECODER_CHANNELS = (512, 256, 128, 64)
 #
-ENCODER_CHANNELS = (3, 64, 128, 256)
-DECODER_CHANNELS = (256, 128, 64)
+ENCODER_CHANNELS = (3, 32, 64, 128)
+DECODER_CHANNELS = (128, 64, 32)
 # 40s/epoch on small binary dataset | 3min10s/epoch on multiclass dataset
 # ENCODER_CHANNELS = (3, 16, 32, 64)
 # DECODER_CHANNELS = (64, 32, 16)
-NB_CLASSES = 5
+if TRAINING_TYPE == 'BINARY':
+    NB_CLASSES = 1
+elif TRAINING_TYPE == 'MULTICLASS':
+    NB_CLASSES = 5
 
 # Initialize learning rate, number of epochs to train for, and the batch size
 INIT_LR = 0.002
 NUM_EPOCHS = 30
-BATCH_SIZE = 64
+BATCH_SIZE = 8
 
 # Define the input image dimensions
 INPUT_IMAGE_WIDTH = int(960/2)

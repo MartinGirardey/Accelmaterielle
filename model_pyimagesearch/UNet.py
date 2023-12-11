@@ -100,6 +100,10 @@ class UNet(Module):
 
         # Pass the decoder features through the regression head to obtain the segmentation mask
         map = self.head(decFeatures)
+        if map.size(1) == 1:
+            map = F.sigmoid(map)
+        else:
+            map = F.softmax(map, dim=1)
 
         # Check to see if we are retaining the original output dimensions and if so, then resize the output to match them
         if self.retainDim:

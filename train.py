@@ -16,14 +16,14 @@ import time
 import os
 
 if __name__ == '__main__':
-    binary = False
+    binary = True
 
     # Load the image and mask filepaths in a sorted manner
     imagePaths = None ; maskPaths = None
-    if binary:
+    if config.TRAINING_TYPE == 'BINARY':
         imagePaths = sorted(list(paths.list_images(config.IMAGE_BINARY_DATASET_PATH)))
         maskPaths = sorted(list(paths.list_images(config.MASK_BINARY_DATASET_PATH)))
-    else:
+    elif config.TRAINING_TYPE == 'MULTICLASS':
         imagePaths = sorted(list(paths.list_images(config.IMAGE_MULTICLASS_DATASET_PATH)))
         maskPaths = sorted(list(paths.list_images(config.MASK_MULTICLASS_DATASET_PATH)))
 
@@ -38,25 +38,23 @@ if __name__ == '__main__':
     # Write the testing image paths to disk so that we can use then when evaluating/testing our model
     print("[INFO] Saving testing image paths...")
     f = None
-    if binary:
+    if config.TRAINING_TYPE == 'BINARY':
         f = open(config.BINARY_TEST_PATHS, "w")
-    else:
+    elif config.TRAINING_TYPE == 'MULTICLASS':
         f = open(config.MULTICLASS_TEST_PATHS, "w")
     f.write("\n".join(testImages))
     f.close()
 
     # Define transformations
-    transforms = transforms.Compose([transforms.ToPILImage(),
-                                     transforms.Resize((config.INPUT_IMAGE_HEIGHT, config.INPUT_IMAGE_WIDTH),
-                                                       interpolation=transforms.InterpolationMode.NEAREST),
-                                     transforms.ToTensor()])
+    transforms = transforms.Compose([transforms.Resize((config.INPUT_IMAGE_HEIGHT, config.INPUT_IMAGE_WIDTH),
+                                                       interpolation=transforms.InterpolationMode.NEAREST)])
 
     # Create the train and test datasets
     trainDS = None ; testDS = None
-    if binary:
+    if config.TRAINING_TYPE == 'BINARY':
         trainDS = SegmentationBinaryDataset(imagePaths=trainImages, maskPaths=trainMasks, transforms=transforms)
         testDS = SegmentationBinaryDataset(imagePaths=testImages, maskPaths=testMasks, transforms=transforms)
-    else:
+    elif config.TRAINING_TYPE == 'MULTICLASS':
         trainDS = SegmentationMulticlassDataset(imagePaths=trainImages, maskPaths=trainMasks, transforms=transforms)
         testDS = SegmentationMulticlassDataset(imagePaths=testImages, maskPaths=testMasks, transforms=transforms)
 
@@ -64,7 +62,9 @@ if __name__ == '__main__':
     print(f"[INFO] found {len(testDS)} examples in the test set...")
 
     # Plotting the different masks (multiclass case)
-    # image, mask = trainDS[1]
+    # image, mask = trainDS[0]
+    # print(image.size())
+    # print(mask.size())
     # plt.subplot(2,3,1)
     # plt.imshow(image.swapdims(0,1).swapdims(1,2))
     # for i in range(5):
@@ -78,19 +78,14 @@ if __name__ == '__main__':
     testLoader = DataLoader(testDS, shuffle=False, batch_size=config.BATCH_SIZE, pin_memory=config.PIN_MEMORY,
                              num_workers=os.cpu_count())
 
-    # Load UNet model to continue training
-    if binary:
-        unet = torch.load(config.BINARY_MODEL_PATH).to(config.DEVICE)
-    else:
-        unet = torch.load(config.MULTICLASS_MODEL_PATH).to(config.DEVICE)
+    # # Load UNet model to continue training
+    # if config.TRAINING_TYPE == 'BINARY':
+    #     unet = torch.load(config.BINARY_MODEL_PATH).to(config.DEVICE)
+    # elif config.TRAINING_TYPE == 'MULTICLASS':
+    #     unet = torch.load(config.MULTICLASS_MODEL_PATH).to(config.DEVICE)
 
-    # Initialize our UNet model
-    # unet = None
-    # if binary:
-    #     unet = UNet(encChannels=config.ENCODER_CHANNELS, decChannels=config.DECODER_CHANNELS).to(config.DEVICE)
-    # else:
-    #     unet = UNet(encChannels=config.ENCODER_CHANNELS, decChannels=config.DECODER_CHANNELS, nbClasses=config.NB_CLASSES)\
-    #            .to(config.DEVICE)
+    # Train a model from scratch
+    unet = UNet(config.ENCODER_CHANNELS, config.DECODER_CHANNELS, config.NB_CLASSES).to(config.DEVICE)
 
     # Initialize loss function and optimizer
     lossFunc = BCEWithLogitsLoss()
@@ -118,6 +113,7 @@ if __name__ == '__main__':
 
             # Perform a forward pass and calculate the training loss
             pred = unet(x)
+
             loss = lossFunc(pred, y)
 
             # First, zero out any previously accumulated gradients, then perform backpropagation, and then update model
@@ -160,9 +156,9 @@ if __name__ == '__main__':
 
         if avgTestLoss < minTestLoss:
             print("Test loss {} -> {} : saving model...".format(minTestLoss, avgTestLoss))
-            if binary:
+            if config.TRAINING_TYPE == 'BINARY':
                 torch.save(unet, config.BINARY_MODEL_PATH)
-            else:
+            elif config.TRAINING_TYPE == 'MULTICLASS':
                 torch.save(unet, config.MULTICLASS_MODEL_PATH)
             minTestLoss = avgTestLoss
 
@@ -179,7 +175,7 @@ if __name__ == '__main__':
     plt.xlabel("Epoch #")
     plt.ylabel("Loss")
     plt.legend(loc="lower left")
-    if binary:
+    if config.TRAINING_TYPE == 'BINARY':
         plt.savefig(config.BINARY_PLOT_PATH)
-    else:
+    elif config.TRAINING_TYPE == 'MULTICLASS':
         plt.savefig(config.MULTICLASS_PLOT_PATH)

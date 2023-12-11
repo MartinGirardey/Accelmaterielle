@@ -3,7 +3,7 @@ from torch.utils.data import Dataset
 import cv2
 import numpy as np
 import model_pyimagesearch.config as config
-import torch
+import torch, torchvision
 
 class SegmentationBinaryDataset(Dataset):
 	def __init__(self, imagePaths, maskPaths, transforms):
@@ -17,14 +17,13 @@ class SegmentationBinaryDataset(Dataset):
 		return len(self.imagePaths)
 
 	def __getitem__(self, idx):
-		# Grab the image path from the current index
-		imagePath = self.imagePaths[idx]
-
 		# Load the image from disk, swap its channels from BGR to RGB, and read the associated mask from disk in
 		# grayscale mode
-		image = cv2.imread(imagePath)
-		image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-		mask = cv2.imread(self.maskPaths[idx], 0)
+		# image = cv2.imread(imagePath)
+		# image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+		# mask = cv2.imread(self.maskPaths[idx], 0)
+		image = torchvision.io.read_image(self.imagePaths[idx]) / 255.
+		mask = torchvision.io.read_image(self.maskPaths[idx], torchvision.io.ImageReadMode.GRAY) / 255.
 
 		# Check to see if we are applying any transformations
 		if self.transforms is not None:
@@ -53,13 +52,18 @@ class SegmentationMulticlassDataset(Dataset):
 
 		# Load the image from disk, swap its channels from BGR to RGB, and read the associated mask from disk in
 		# grayscale mode
-		image = cv2.imread(imagePath)
-		image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-		mono_mask = cv2.imread(self.maskPaths[idx], 0)
-		mask = [np.zeros((mono_mask.shape[0], mono_mask.shape[1])) for i in range(len(self.classValues))]
+		# image = cv2.imread(imagePath)
+		# image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+		# mono_mask = cv2.imread(self.maskPaths[idx], 0)
+		image = torchvision.io.read_image(imagePath)
+		print(image.size())
+		mono_mask = torchvision.io.read_image(self.maskPaths[idx])
+		print(mono_mask.size())
+		mask = [torch.zeros((mono_mask.shape[0], mono_mask.shape[1])) for i in range(len(self.classValues))]
+
 		for i in range(len(self.classValues)):
-			mask[i] = (mono_mask == self.classValues[i]) * self.classValues[i]
-			mask[i] = mask[i].astype(np.uint8)
+			mask[i] = (mono_mask == self.classValues[i]) * 255
+			mask[i] = mask[i].type_as(np.uint8)
 
 		# Check to see if we are applying any transformations
 		if self.transforms is not None:
