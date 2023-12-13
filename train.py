@@ -15,7 +15,7 @@ import os
 import glob
 
 if __name__ == '__main__':
-    binary = True
+    print(config.DEVICE)
 
     # Load the image and mask filepaths in a sorted manner
     imagePaths = None ; maskPaths = None

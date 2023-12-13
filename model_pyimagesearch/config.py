@@ -22,7 +22,7 @@ NUM_EPOCHS = 50
 BATCH_SIZE = 64
 
 # Define the test split
-SPLIT_SEED = 42
+SPLIT_SEED = 16
 TEST_SPLIT = 0.15
 
 # Define the size of the encoder and decoder channels
