@@ -85,7 +85,7 @@ if __name__ == '__main__':
     print("[INFO] Training the network...")
     startTime = time.time()
     minTestLoss = np.inf
-    for e in tqdm(range(config.NUM_EPOCHS)):
+    for e in range(config.NUM_EPOCHS):
         # Set the model in training mode
         unet.train()
 
@@ -100,7 +100,6 @@ if __name__ == '__main__':
 
             # Perform a forward pass and calculate the training loss
             pred = unet(x)
-
             loss = lossFunc(pred, y)
 
             # First, zero out any previously accumulated gradients, then perform backpropagation, and then update model
