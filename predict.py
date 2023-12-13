@@ -6,11 +6,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch, torchvision
 import os
-from imutils import paths
-from sklearn.model_selection import train_test_split
 from torchvision import transforms
 from model_pyimagesearch.dataset import SegmentationBinaryDataset, SegmentationMulticlassDataset
 from torch.nn import functional as F
+import glob
 
 def metrics(target, preds, threshold, ax=[]):
     dice = None ; jaccard = None ; pr_curve = None
@@ -170,10 +169,10 @@ def make_predictions(model, data, threshold=config.PRED_THRESHOLD, plot=True, co
         #     plot_one_mask(image.swapdims(0, 1).swapdims(1, 2), mask.squeeze() * 255, pred.squeeze() * 255)
 
 if __name__ == '__main__':
-    nbExamples = 1 # Number of examples to analyze
+    nbExamples = 2 # Number of examples to analyze
     randomSeed = 1 # Seed for the random selection of those examples
     plot = True # Plot the image and the masks
-    computeMetrics = True # Compute and plot the metrics (Precision - Recall curve & Confusion Matrix)
+    computeMetrics = False # Compute and plot the metrics (Precision - Recall curve & Confusion Matrix)
 
     # Load the image and mask filepaths in a sorted manner
     imagePaths = None ; maskPaths = None
@@ -184,26 +183,24 @@ if __name__ == '__main__':
         imagePaths = sorted(list(glob.glob(config.IMAGE_MULTICLASS_DATASET_PATH + "/*.png")))
         maskPaths = sorted(list(glob.glob(config.MASK_MULTICLASS_DATASET_PATH + "/*.png")))
 
-    # Partition the data into training and testing sets
-    split = train_test_split(imagePaths, maskPaths, test_size=config.TEST_SPLIT, random_state=config.SPLIT_SEED)
-    (_, testImages) = split[:2]
-    (_, testMasks) = split[2:]
-
-    # Select the data to show according to the given seed
-    np.random.seed(randomSeed)
-    testImages = np.random.choice(testImages, nbExamples)
-    np.random.seed(randomSeed)
-    testMasks = np.random.choice(testMasks, nbExamples)
-
     # Define transformations
     transforms = transforms.Compose([transforms.Resize((config.INPUT_IMAGE_HEIGHT, config.INPUT_IMAGE_WIDTH),
                                                        interpolation=transforms.InterpolationMode.NEAREST)])
-    # Create the train and test datasets
+
     dataset = None
     if config.TRAINING_TYPE == 'BINARY':
-        dataset = SegmentationBinaryDataset(imagePaths=testImages, maskPaths=testMasks, transforms=transforms)
+        dataset = SegmentationBinaryDataset(imagePaths=imagePaths, maskPaths=maskPaths, transforms=transforms)
     elif config.TRAINING_TYPE == 'MULTICLASS':
-        dataset = SegmentationMulticlassDataset(imagePaths=testImages, maskPaths=testMasks, transforms=transforms)
+        dataset = SegmentationMulticlassDataset(imagePaths=imagePaths, maskPaths=maskPaths, transforms=transforms)
+
+    # Partition of the data into training and testing sets
+    trainSize = int((1-config.TEST_SPLIT)*len(dataset))
+    _, testSet = torch.utils.data.random_split(dataset, [trainSize, len(dataset)-trainSize],
+                                               generator=torch.Generator().manual_seed(config.SPLIT_SEED))
+
+    # Picking few data to plot and analyze
+    np.random.seed(randomSeed)
+    testIndex = np.random.choice(range(0,len(testSet)), nbExamples)
 
     # Load our model from disk and flash it to the current device
     print("[INFO] Load up model...")
@@ -212,8 +209,8 @@ if __name__ == '__main__':
     elif config.TRAINING_TYPE == 'MULTICLASS':
         unet = torch.load(config.MULTICLASS_MODEL_PATH).to(config.DEVICE)
 
-    # Showing the
-    for i in range(len(testImages)):
-        make_predictions(unet, dataset[i], threshold=0.45, plot=plot, computeMetrics=computeMetrics)
+    # Ploting and analyzing the few data one by one
+    for ind in testIndex:
+        make_predictions(unet, testSet[ind], threshold=0.45, plot=plot, computeMetrics=computeMetrics)
 
     plt.show()

@@ -5,7 +5,6 @@ from model_pyimagesearch import config
 from torch.nn import BCEWithLogitsLoss
 from torch.optim import Adam
 from torch.utils.data import DataLoader
-from sklearn.model_selection import train_test_split
 from torchvision import transforms
 from tqdm import tqdm
 import matplotlib.pyplot as plt
@@ -27,36 +26,20 @@ if __name__ == '__main__':
         imagePaths = sorted(list(glob.glob(config.IMAGE_MULTICLASS_DATASET_PATH + "/*.png")))
         maskPaths = sorted(list(glob.glob(config.MASK_MULTICLASS_DATASET_PATH + "/*.png")))
 
-    # Partition the data into training and testing splits using 85% of the data for training and the remaining 15% for
-    # testing
-    split = train_test_split(imagePaths, maskPaths, test_size=config.TEST_SPLIT, random_state=config.SPLIT_SEED)
-
-    # Unpack the data split
-    (trainImages, testImages) = split[:2]
-    (trainMasks, testMasks) = split[2:]
-
-    # Write the testing image paths to disk so that we can use then when evaluating/testing our model
-    print("[INFO] Saving testing image paths...")
-    f = None
-    if config.TRAINING_TYPE == 'BINARY':
-        f = open(config.BINARY_TEST_PATHS, "w")
-    elif config.TRAINING_TYPE == 'MULTICLASS':
-        f = open(config.MULTICLASS_TEST_PATHS, "w")
-    f.write("\n".join(testImages))
-    f.close()
-
     # Define transformations
     transforms = transforms.Compose([transforms.Resize((config.INPUT_IMAGE_HEIGHT, config.INPUT_IMAGE_WIDTH),
                                                        interpolation=transforms.InterpolationMode.NEAREST)])
 
-    # Create the train and test datasets
-    trainDS = None ; testDS = None
+    dataset = None
     if config.TRAINING_TYPE == 'BINARY':
-        trainDS = SegmentationBinaryDataset(imagePaths=trainImages, maskPaths=trainMasks, transforms=transforms)
-        testDS = SegmentationBinaryDataset(imagePaths=testImages, maskPaths=testMasks, transforms=transforms)
+        dataset = SegmentationBinaryDataset(imagePaths=imagePaths, maskPaths=maskPaths, transforms=transforms)
     elif config.TRAINING_TYPE == 'MULTICLASS':
-        trainDS = SegmentationMulticlassDataset(imagePaths=trainImages, maskPaths=trainMasks, transforms=transforms)
-        testDS = SegmentationMulticlassDataset(imagePaths=testImages, maskPaths=testMasks, transforms=transforms)
+        dataset = SegmentationMulticlassDataset(imagePaths=imagePaths, maskPaths=maskPaths, transforms=transforms)
+
+    # Partition of the data into training and testing sets
+    trainSize = int((1-config.TEST_SPLIT)*len(dataset))
+    trainDS, testDS = torch.utils.data.random_split(dataset, [trainSize, len(dataset)-trainSize],
+                                               generator=torch.Generator().manual_seed(config.SPLIT_SEED))
 
     print(f"[INFO] found {len(trainDS)} examples in the training set...")
     print(f"[INFO] found {len(testDS)} examples in the test set...")
