@@ -5,7 +5,6 @@ from torchmetrics.classification import Dice, JaccardIndex, PrecisionRecallCurve
 import matplotlib.pyplot as plt
 import numpy as np
 import torch, torchvision
-import cv2
 import os
 from imutils import paths
 from sklearn.model_selection import train_test_split
@@ -179,11 +178,11 @@ if __name__ == '__main__':
     # Load the image and mask filepaths in a sorted manner
     imagePaths = None ; maskPaths = None
     if config.TRAINING_TYPE == 'BINARY':
-        imagePaths = sorted(list(paths.list_images(config.IMAGE_BINARY_DATASET_PATH)))
-        maskPaths = sorted(list(paths.list_images(config.MASK_BINARY_DATASET_PATH)))
+        imagePaths = sorted(list(glob.glob(config.IMAGE_BINARY_DATASET_PATH + "/*.png")))
+        maskPaths = sorted(list(glob.glob(config.MASK_BINARY_DATASET_PATH + "/*.png")))
     elif config.TRAINING_TYPE == 'MULTICLASS':
-        imagePaths = sorted(list(paths.list_images(config.IMAGE_MULTICLASS_DATASET_PATH)))
-        maskPaths = sorted(list(paths.list_images(config.MASK_MULTICLASS_DATASET_PATH)))
+        imagePaths = sorted(list(glob.glob(config.IMAGE_MULTICLASS_DATASET_PATH + "/*.png")))
+        maskPaths = sorted(list(glob.glob(config.MASK_MULTICLASS_DATASET_PATH + "/*.png")))
 
     # Partition the data into training and testing sets
     split = train_test_split(imagePaths, maskPaths, test_size=config.TEST_SPLIT, random_state=config.SPLIT_SEED)

@@ -7,13 +7,13 @@ from torch.optim import Adam
 from torch.utils.data import DataLoader
 from sklearn.model_selection import train_test_split
 from torchvision import transforms
-from imutils import paths
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import time
 import os
+import glob
 
 if __name__ == '__main__':
     binary = True
@@ -21,11 +21,11 @@ if __name__ == '__main__':
     # Load the image and mask filepaths in a sorted manner
     imagePaths = None ; maskPaths = None
     if config.TRAINING_TYPE == 'BINARY':
-        imagePaths = sorted(list(paths.list_images(config.IMAGE_BINARY_DATASET_PATH)))
-        maskPaths = sorted(list(paths.list_images(config.MASK_BINARY_DATASET_PATH)))
+        imagePaths = sorted(list(glob.glob(config.IMAGE_BINARY_DATASET_PATH + "/*.png")))
+        maskPaths = sorted(list(glob.glob(config.MASK_BINARY_DATASET_PATH + "/*.png")))
     elif config.TRAINING_TYPE == 'MULTICLASS':
-        imagePaths = sorted(list(paths.list_images(config.IMAGE_MULTICLASS_DATASET_PATH)))
-        maskPaths = sorted(list(paths.list_images(config.MASK_MULTICLASS_DATASET_PATH)))
+        imagePaths = sorted(list(glob.glob(config.IMAGE_MULTICLASS_DATASET_PATH + "/*.png")))
+        maskPaths = sorted(list(glob.glob(config.MASK_MULTICLASS_DATASET_PATH + "/*.png")))
 
     # Partition the data into training and testing splits using 85% of the data for training and the remaining 15% for
     # testing

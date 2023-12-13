@@ -1,6 +1,5 @@
 # Import the necessary packages
 from torch.utils.data import Dataset
-import cv2
 import numpy as np
 import model_pyimagesearch.config as config
 import torch, torchvision
