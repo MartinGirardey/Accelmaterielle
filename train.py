@@ -29,7 +29,7 @@ if __name__ == '__main__':
 
     # Partition the data into training and testing splits using 85% of the data for training and the remaining 15% for
     # testing
-    split = train_test_split(imagePaths, maskPaths, test_size=config.TEST_SPLIT, random_state=42)
+    split = train_test_split(imagePaths, maskPaths, test_size=config.TEST_SPLIT, random_state=config.SPLIT_SEED)
 
     # Unpack the data split
     (trainImages, testImages) = split[:2]
@@ -61,13 +61,11 @@ if __name__ == '__main__':
     print(f"[INFO] found {len(trainDS)} examples in the training set...")
     print(f"[INFO] found {len(testDS)} examples in the test set...")
 
-    # Plotting the different masks (multiclass case)
-    # image, mask = trainDS[0]
-    # print(image.size())
-    # print(mask.size())
+    # # Plotting the different masks (multiclass case)
+    # image, mask = trainDS[1]
     # plt.subplot(2,3,1)
     # plt.imshow(image.swapdims(0,1).swapdims(1,2))
-    # for i in range(5):
+    # for i in range(4):
     #     plt.subplot(2,3,i+2)
     #     plt.imshow(mask[i,:,:])
     # plt.show()
@@ -78,6 +76,9 @@ if __name__ == '__main__':
     testLoader = DataLoader(testDS, shuffle=False, batch_size=config.BATCH_SIZE, pin_memory=config.PIN_MEMORY,
                              num_workers=os.cpu_count())
 
+    # Set or load the model
+    unet = None
+
     # # Load UNet model to continue training
     # if config.TRAINING_TYPE == 'BINARY':
     #     unet = torch.load(config.BINARY_MODEL_PATH).to(config.DEVICE)
@@ -85,7 +86,10 @@ if __name__ == '__main__':
     #     unet = torch.load(config.MULTICLASS_MODEL_PATH).to(config.DEVICE)
 
     # Train a model from scratch
-    unet = UNet(config.ENCODER_CHANNELS, config.DECODER_CHANNELS, config.NB_CLASSES).to(config.DEVICE)
+    if config.TRAINING_TYPE == 'BINARY':
+        unet = UNet(config.ENCODER_CHANNELS, config.DECODER_CHANNELS, config.NB_CLASSES).to(config.DEVICE)
+    elif confit.TRAINING_TYPE == 'MULTICLASS':
+        unet = UNet(config.ENCODER_CHANNELS, config.DECODER_CHANNELS, config.NB_CLASSES-1).to(config.DEVICE)
 
     # Initialize loss function and optimizer
     lossFunc = BCEWithLogitsLoss()
