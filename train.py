@@ -15,8 +15,6 @@ import os
 import glob
 
 if __name__ == '__main__':
-    print(config.DEVICE)
-
     # Load the image and mask filepaths in a sorted manner
     imagePaths = None ; maskPaths = None
     if config.TRAINING_TYPE == 'BINARY':
@@ -59,20 +57,18 @@ if __name__ == '__main__':
     testLoader = DataLoader(testDS, shuffle=False, batch_size=config.BATCH_SIZE, pin_memory=config.PIN_MEMORY,
                              num_workers=os.cpu_count())
 
-    # Set or load the model
+    # Set or load the UNet model
     unet = None
-
-    # # Load UNet model to continue training
-    # if config.TRAINING_TYPE == 'BINARY':
-    #     unet = torch.load(config.BINARY_MODEL_PATH).to(config.DEVICE)
-    # elif config.TRAINING_TYPE == 'MULTICLASS':
-    #     unet = torch.load(config.MULTICLASS_MODEL_PATH).to(config.DEVICE)
-
-    # Train a model from scratch
-    if config.TRAINING_TYPE == 'BINARY':
-        unet = UNet(config.ENCODER_CHANNELS, config.DECODER_CHANNELS, config.NB_CLASSES).to(config.DEVICE)
-    elif confit.TRAINING_TYPE == 'MULTICLASS':
-        unet = UNet(config.ENCODER_CHANNELS, config.DECODER_CHANNELS, config.NB_CLASSES-1).to(config.DEVICE)
+    if config.CONTINUE_TRAINING: # Load UNet model to continue training
+        if config.TRAINING_TYPE == 'BINARY':
+            unet = torch.load(config.BINARY_MODEL_PATH).to(config.DEVICE)
+        elif config.TRAINING_TYPE == 'MULTICLASS':
+            unet = torch.load(config.MULTICLASS_MODEL_PATH).to(config.DEVICE)
+    else: # Train a model from scratch
+        if config.TRAINING_TYPE == 'BINARY':
+            unet = UNet(config.ENCODER_CHANNELS, config.DECODER_CHANNELS, config.NB_CLASSES).to(config.DEVICE)
+        elif config.TRAINING_TYPE == 'MULTICLASS':
+            unet = UNet(config.ENCODER_CHANNELS, config.DECODER_CHANNELS, config.NB_CLASSES-1).to(config.DEVICE)
 
     # Initialize loss function and optimizer
     lossFunc = BCEWithLogitsLoss()
