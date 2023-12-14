@@ -79,7 +79,7 @@ class Decoder(Module):
 
 class UNet(Module):
     def __init__(self, encChannels=(3, 16, 32, 64), decChannels=(64, 32, 16), nbClasses=1, retainDim=True,
-                 outSize=(config.INPUT_IMAGE_HEIGHT, config.INPUT_IMAGE_WIDTH)):
+                 outSize=(config.OUTPUT_IMAGE_HEIGHT, config.OUTPUT_IMAGE_WIDTH)):
         super().__init__()
 
         # Initialize the encoder and decoder
@@ -105,7 +105,7 @@ class UNet(Module):
 
         # Check to see if we are retaining the original output dimensions and if so, then resize the output to match them
         if self.retainDim:
-            map = F.interpolate(map, self.outSize)
+            map = F.interpolate(map, self.outSize, mode='nearest')
 
         # Return the segmentation map
         return map

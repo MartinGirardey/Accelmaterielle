@@ -5,7 +5,8 @@ from model_pyimagesearch import config
 from torch.nn import BCEWithLogitsLoss
 from torch.optim import Adam
 from torch.utils.data import DataLoader
-from torchvision import transforms
+from torch.nn import functional as F
+import torchvision.transforms
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import numpy as np
@@ -25,8 +26,9 @@ if __name__ == '__main__':
         maskPaths = sorted(list(glob.glob(config.MASK_MULTICLASS_DATASET_PATH + "/*.png")))
 
     # Define transformations
-    transforms = transforms.Compose([transforms.Resize((config.INPUT_IMAGE_HEIGHT, config.INPUT_IMAGE_WIDTH),
-                                                       interpolation=transforms.InterpolationMode.NEAREST)])
+    transforms = None
+    # transforms = transforms.Resize((config.INPUT_IMAGE_HEIGHT, config.INPUT_IMAGE_WIDTH),
+    #                                                    interpolation=transforms.InterpolationMode.NEAREST)
 
     dataset = None
     if config.TRAINING_TYPE == 'BINARY':
@@ -51,11 +53,11 @@ if __name__ == '__main__':
     #     plt.imshow(mask[i,:,:])
     # plt.show()
 
-    # Create the training and test data loaders
+    # Create the training and test data loaders (on cuda, for num_workers, we consider the value 2 * number of GPU used)
     trainLoader = DataLoader(trainDS, shuffle=True, batch_size=config.BATCH_SIZE, pin_memory=config.PIN_MEMORY,
-                             num_workers=os.cpu_count())
+                             num_workers=8)
     testLoader = DataLoader(testDS, shuffle=False, batch_size=config.BATCH_SIZE, pin_memory=config.PIN_MEMORY,
-                             num_workers=os.cpu_count())
+                             num_workers=8)
 
     # Set or load the UNet model
     unet = None
@@ -94,6 +96,8 @@ if __name__ == '__main__':
             # Send the input to the device
             (x, y) = (x.to(config.DEVICE), y.to(config.DEVICE))
 
+            x = F.interpolate(x, (config.INPUT_IMAGE_HEIGHT, config.INPUT_IMAGE_WIDTH), mode='nearest')
+
             # Perform a forward pass and calculate the training loss
             pred = unet(x)
             loss = lossFunc(pred, y)
@@ -107,8 +111,6 @@ if __name__ == '__main__':
             # Add the loss to the total training loss so far
             totalTrainLoss += loss
 
-            print("Epoch {} : Train batch {} over {}".format(e+1, i+1, len(trainLoader)))
-
         # Switch off autograd
         with torch.no_grad():
             # Set the model in evaluation mode
@@ -121,8 +123,6 @@ if __name__ == '__main__':
                 # Make the predictions and calculate the validation loss
                 pred = unet(x)
                 totalTestLoss += lossFunc(pred, y)
-
-                print("Epoch {} : Test batch {} over {}".format(e+1, i+1, len(testLoader)))
 
         # Calculate the average training and validation loss
         avgTrainLoss = totalTrainLoss * (len(trainDS) + len(testDS)) / len(trainDS)

@@ -14,6 +14,7 @@ import glob
 def metrics(target, preds, threshold, ax=[], plot=True):
     dice = None ; jaccard = None ; pr_curve = None
     if config.TRAINING_TYPE == "BINARY":
+        accuracy = Accuracy(task='binary', threshold=threshold)
         dice = Dice(threshold=threshold)
         jaccard = JaccardIndex(task="binary", threshold=threshold)
         ap = AveragePrecision(task='binary', average=None)
@@ -47,7 +48,7 @@ def metrics(target, preds, threshold, ax=[], plot=True):
             fig.tight_layout()
             fig.show()
 
-    return dice(preds, target).item(), jaccard(preds, target).item(), ap(preds, target).item(), f1(preds, target).item()
+    return accuracy(preds, target).item(), dice(preds, target).item(), jaccard(preds, target).item(), ap(preds, target).item(), f1(preds, target).item()
 
 def plot_one_mask(image, mask, pred, ax=[]):
     # Initialize our figure
@@ -171,9 +172,9 @@ def make_predictions(model, data, threshold=config.PRED_THRESHOLD, plot=True, co
             plot_one_mask(image.swapdims(0,1).swapdims(1,2), mask.squeeze(), pred.squeeze(), ax[0])
             if config.TRAINING_TYPE == 'MULTICLASS':
                 plot_multi_masks(image.swapdims(0,1).swapdims(1,2), multiMask, predMask)
-            dice, jaccard, ap, f1 = metrics(multiMask, multiPred, threshold, ax[1])
+            accuracy, dice, jaccard, ap, f1 = metrics(multiMask, multiPred, threshold, ax[1])
             fig.show()
-            return dice, jaccard, ap, f1
+            return accuracy, dice, jaccard, ap, f1
 
         elif plot and not computeMetrics:
             fig, ax = plt.subplots(1, 3, figsize=(10,4))
@@ -183,18 +184,22 @@ def make_predictions(model, data, threshold=config.PRED_THRESHOLD, plot=True, co
             fig.show()
 
         elif not plot and computeMetrics:
-            dice, jaccard, ap, f1 = metrics(multiMask, multiPred, threshold, ax, plot=False)
-            return dice, jaccard, ap, f1
+            accuracy, dice, jaccard, ap, f1 = metrics(multiMask, multiPred, threshold, plot=False)
+            return accuracy, dice, jaccard, ap, f1
 
         return multiMask, multiPred
 
 if __name__ == '__main__':
     nbExamples = 5 # Number of examples to analyze among the test set
-    randomSeed = 16 # Seed for the random selection of those examples
+    randomSeed = 42 # Seed for the random selection of those examples
+    # threshold = 0.47 # Best for accuracy
+    # threshold = 0.18 # Best for Dice, Jaccard and F1
+    threshold = 0.4
     plot = True # Plot the image and the masks
     computeMetrics = True # Compute and plot the metrics (Precision - Recall curve & Confusion Matrix)
-    findBestThreshold = False
-    findBestThresholdArgs = (0., 1., 50, 'dice') # Start, stop, number of values to consider and index to use
+    findBestThreshold = True
+    # Start, stop, number of values to consider and index to use (dice, jaccard, f1 or accuracy, accuracy by default)
+    findBestThresholdArgs = (0., 1., 50, 'f1')
 
     # Load the image and mask filepaths in a sorted manner
     imagePaths = None ; maskPaths = None
@@ -249,23 +254,26 @@ if __name__ == '__main__':
 
     else:
         # Ploting and analyzing the few data one by one
-        dices, jaccards, aps, f1s = [], [], [], []
+        accuracies, dices, jaccards, aps, f1s = [], [], [], [], []
         # testIndex = [0, 0]
         # thresholds = [0.34, 0.5]
         # i = 0
         for ind in testIndex:
             if computeMetrics:
-                dice, jaccard, ap, f1 = make_predictions(unet, testSet[ind], threshold=0.2648, plot=plot, computeMetrics=computeMetrics)
+                accuracy, dice, jaccard, ap, f1 = make_predictions(unet, testSet[ind], threshold=threshold, plot=plot, computeMetrics=computeMetrics)
+                accuracies.append(accuracy)
                 dices.append(dice)
                 jaccards.append(jaccard)
                 aps.append(ap)
                 f1s.append(f1)
             elif plot:
-                make_predictions(unet, testSet[ind], threshold=0.1, plot=plot, computeMetrics=computeMetrics)
+                make_predictions(unet, testSet[ind], threshold=threshold, plot=plot, computeMetrics=computeMetrics)
             # i += 1
 
         if len(dices) > 0:
             print("###################### EVALUATION ######################")
+            print("Accuracies               = {}".format(accuracies))
+            print("Mean accuracy            = {}".format(sum(accuracies)/len(accuracies)))
             print("Dice indexs              = {}".format(dices))
             print("Dice mean                = {}".format(sum(dices)/len(dices)))
             print("Jaccard indexs           = {}".format(jaccards))
@@ -276,4 +284,5 @@ if __name__ == '__main__':
             print("F1 mean                  = {}".format(sum(f1s)/len(f1s)))
             print("########################################################")
 
-        plt.show()
+        if plot:
+            plt.show()
