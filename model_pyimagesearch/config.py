@@ -5,25 +5,22 @@ import os
 TRAINING_TYPE = "BINARY"
 # TRAINING_TYPE = "MULTICLASS"
 
-# Continue training (a pytorch save must be present at the xxxx_MODEL_PATH position)
 CONTINUE_TRAINING = False
 
-# Define the size of the encoder and decoder channels
-ENCODER_CHANNELS = (3, 16, 32, 64)
-DECODER_CHANNELS = (64, 32, 16)
+ENCODER_CHANNELS = (3, 64, 128, 256, 512, 1024)
+DECODER_CHANNELS = (1024, 512, 256, 128, 64)
 
-# Define the input image dimensions
+INTERPOLATE = False
+
 INPUT_IMAGE_WIDTH = int(960/2)
 INPUT_IMAGE_HEIGHT = int(736/2)
-OUTPUT_IMAGE_WIDTH = 960
-OUTPUT_IMAGE_HEIGHT = 736
+OUTPUT_IMAGE_WIDTH = int(960/2)
+OUTPUT_IMAGE_HEIGHT = int(736/2)
 
-# Initialize learning rate, number of epochs to train for, and the batch size
 INIT_LR = 0.001
-NUM_EPOCHS = 50
-BATCH_SIZE = 64
+NUM_EPOCHS = 200
+BATCH_SIZE = 16
 
-# Define the test split
 TEST_SPLIT = 0.15
 SPLIT_SEED = 42
 

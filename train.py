@@ -26,9 +26,9 @@ if __name__ == '__main__':
         maskPaths = sorted(list(glob.glob(config.MASK_MULTICLASS_DATASET_PATH + "/*.png")))
 
     # Define transformations
-    transforms = None
-    # transforms = transforms.Resize((config.INPUT_IMAGE_HEIGHT, config.INPUT_IMAGE_WIDTH),
-    #                                                    interpolation=transforms.InterpolationMode.NEAREST)
+    # transforms = None
+    transforms = torchvision.transforms.Resize((config.OUTPUT_IMAGE_HEIGHT, config.OUTPUT_IMAGE_WIDTH),
+                                                       interpolation=torchvision.transforms.InterpolationMode.NEAREST)
 
     dataset = None
     if config.TRAINING_TYPE == 'BINARY':
@@ -68,9 +68,11 @@ if __name__ == '__main__':
             unet = torch.load(config.MULTICLASS_MODEL_PATH).to(config.DEVICE)
     else: # Train a model from scratch
         if config.TRAINING_TYPE == 'BINARY':
-            unet = UNet(config.ENCODER_CHANNELS, config.DECODER_CHANNELS, config.NB_CLASSES).to(config.DEVICE)
+            unet = UNet(config.ENCODER_CHANNELS, config.DECODER_CHANNELS, config.NB_CLASSES, retainDim=config.INTERPOLATE)\
+                .to(config.DEVICE)
         elif config.TRAINING_TYPE == 'MULTICLASS':
-            unet = UNet(config.ENCODER_CHANNELS, config.DECODER_CHANNELS, config.NB_CLASSES-1).to(config.DEVICE)
+            unet = UNet(config.ENCODER_CHANNELS, config.DECODER_CHANNELS, config.NB_CLASSES-1, retainDim=config.INTERPOLATE)\
+                .to(config.DEVICE)
 
     # Initialize loss function and optimizer
     lossFunc = BCEWithLogitsLoss()
@@ -100,7 +102,11 @@ if __name__ == '__main__':
 
             # Perform a forward pass and calculate the training loss
             pred = unet(x)
-            loss = lossFunc(pred, y)
+            if not config.INTERPOLATE:
+                y = torchvision.transforms.CenterCrop([pred.size(2), pred.size(3)])(y)
+                loss = lossFunc(pred, y)
+            else:
+                loss = lossFunc(pred, y)
 
             # First, zero out any previously accumulated gradients, then perform backpropagation, and then update model
             # parameters
@@ -122,7 +128,13 @@ if __name__ == '__main__':
                 (x, y) = (x.to(config.DEVICE), y.to(config.DEVICE))
                 # Make the predictions and calculate the validation loss
                 pred = unet(x)
-                totalTestLoss += lossFunc(pred, y)
+                if not config.INTERPOLATE:
+                    y = torchvision.transforms.CenterCrop([pred.size(2), pred.size(3)])(y)
+                    loss = lossFunc(pred, y)
+                else:
+                    loss = lossFunc(pred, y)
+
+                totalTestLoss += loss
 
         # Calculate the average training and validation loss
         avgTrainLoss = totalTrainLoss * (len(trainDS) + len(testDS)) / len(trainDS)

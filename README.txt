@@ -54,16 +54,18 @@ numpy
 
 1. Configure the training parameters within the config.py file :
 	- TRAINING_TYPE = "BINARY" or "MULTICLASS"   
-	- CONTINUE_TRAINING = True or False      : Shall we continue a training or start a new one
-	- ENCODER_CHANNELS & DECODER_CHANNELS    : Define the architecture of the UNet network with the number of convolution layers
-	- INPUT_IMAGE_WIDTH & INPUT_IMAGE_HEIGHT : For optimization, we often consider smaller images (original ones resized), here you can specify the desired size.
-	- INIT_LR                                : Initial learning rate
-	- NUM_EPOCHS                             : Number of epochs
-	- BATCH_SIZE                             : Size of a batch
-	- TEST_SPLIT = between 0 and 1           : Amount of data reserved for testing purpose
-	- SPLIT_SEED                             : Seed for the random splitting of the data, allows to start in the same conditions from one test to another if desired
-	- xxxxxx_DATASET_PATH                    : Path to the datasets (binary and multiclass)
-	- BASE_OUTPUT                            : Base path to create the output files
+	- CONTINUE_TRAINING = True or False        : Shall we continue a training or start a new one
+	- INTERPOLATE = True or False              : Do the model has to interpolate the output to the input size ?
+	- ENCODER_CHANNELS & DECODER_CHANNELS      : Define the architecture of the UNet network with the number of convolution layers
+	- INPUT_IMAGE_WIDTH & INPUT_IMAGE_HEIGHT   : For optimization, we often consider smaller images (original ones resized), here you can specify the desired size in input of the model
+	- OUTPUT_IMAGE_WIDTH & OUTPUT_IMAGE_HEIGHT : Because we often don't have enough memory available (depending on batch size), we can reduce it by reducing the size of the images we consider
+	- INIT_LR                                  : Initial learning rate
+	- NUM_EPOCHS                               : Number of epochs
+	- BATCH_SIZE                               : Size of a batch
+	- TEST_SPLIT = between 0 and 1             : Amount of data reserved for testing purpose
+	- SPLIT_SEED                               : Seed for the random splitting of the data, allows to start in the same conditions from one test to another if desired
+	- xxxxxx_DATASET_PATH                      : Path to the datasets (binary and multiclass)
+	- BASE_OUTPUT                              : Base path to create the output files
 
 2. Launch train.py script and wait for it to finish (a message is written every time an epoch is completed)
 
@@ -78,18 +80,19 @@ Rk : In the multiclass case (5 classes), only 4 classes are trained. When predic
 1. Open the predict.py file and configure the prediction (variables to be modified just after the "if __name__ == '__main__':" line) :
 	- nbExamples                                                       : Number of examples to consider
 	- randomSeed                                                       : Seed for the random picking of the examples among the test set
+	- selection                                                        : List of selected indices to print among the nbExamples
 	- threshold                                                        : Threshold to be considered to separate the two classes in the binary case, and to determine the fifth class in the multiclass case
 	- plot = True or False                                             : Plot things or not (image, masks, predicted masks, metrics...)
 	- computeMetrics = True or False                                   : Compute the metrics or not (Accuracy, Dice, Jaccard, Average Precision, F1, ROC curve, Confusion matrix...) 
-	- findBestThreshold = True or False                                : For binary segmentation only, allows to find the best threshold (according to a given index). If this parameter is set to True, nothing is plotted and metrics are not computed (because we generally want to consider lot's of data to compute the average best threshold and plotting/computing a lot of metrics and images is annoying, please do both separetly).
+	- findBestThreshold = True or False                                : For binary segmentation only, allows to find the best threshold (according to a given index)
 	- findBestThresholdArgs = (start, stop, nb thresholds, index used) : Parameters for the research of the best threshold
 		- [start, stop] : interval considered
 		- nb thresholds : number of thresholds considered among the interval
 		- index used : 'dice', 'jaccard', 'f1' or 'accuracy' to set the index we want to take for optimizing the threshold ('dice', 'jaccard' and 'f1' gives approximately the same results, 'accuracy' best threshold is generally quite higher)
 
-2. Launch the predict.py script, depending on the parameters you entered, you should obtain (we recommend you to first launch the script with findBestThreshold = True in order to compute the best threshold for further predictions, and to set teh threshold parameter to this value) :
+2. Launch the predict.py script, depending on the parameters you entered, you should obtain :
 	- (if computeMetrics=True) metric values for each example and mean value
 	- (if findBestThreshold) values of best threshold for each considered example, and mean best threshold (which can then be sent
 	- (if plot=True) nbExamples windows with different plots :
 		- image, ground truth mask and predicted mask (single dimension mask which is built from the 4 masks obtained at the output of the network)
-		- (if computeMetrics=True) confusion matrix and ROC curve
+		- (if computeMetrics=True) confusion matrix, error map and ROC curve
