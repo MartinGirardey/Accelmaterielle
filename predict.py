@@ -10,8 +10,9 @@ from torchvision import transforms
 from model_pyimagesearch.dataset import SegmentationBinaryDataset, SegmentationMulticlassDataset
 from torch.nn import functional as F
 import glob
+from sklearn.metrics import confusion_matrix
 
-def metrics(target, preds, threshold, ax=[], plot=True):
+def metrics(target, preds, threshold, targetMono=None, maskMono=None, predMask=None, ax=[], plot=True):
     dice = None ; jaccard = None ; pr_curve = None
     if config.TRAINING_TYPE == "BINARY":
         accuracy = Accuracy(task='binary', threshold=threshold)
@@ -20,35 +21,49 @@ def metrics(target, preds, threshold, ax=[], plot=True):
         ap = AveragePrecision(task='binary', average=None)
         f1 = F1Score(task='binary', threshold=threshold)
         roc_curve = ROC(task='binary')
-        confusion_matrix = ConfusionMatrix(task='binary', threshold=threshold, normalize='true')
-        conf_matrix = confusion_matrix(preds, target).numpy()
-    # elif config.TRAINING_TYPE == "MULTICLASS":
-    #     dice = Dice(num_classes=config.NB_CLASSES)
-    #     jaccard = JaccardIndex(task="multiclass", num_classes=config.NB_CLASSES)
+        conf_matrix = ConfusionMatrix(task='binary', threshold=threshold, normalize='true')
+        c_matrix = conf_matrix(preds, target).numpy()
 
-    isAx = True
-    fig = None
-    if len(ax) == 0:
-        fig, ax = plt.subplots(1, 3, figsize=(10,4))
-        isAx = False
+    elif config.TRAINING_TYPE == "MULTICLASS":
+        accuracy = Accuracy(task='multiclass', num_classes=config.NB_CLASSES)
+        jaccard = JaccardIndex(task="multiclass", num_classes=config.NB_CLASSES)
+        ap = AveragePrecision(task='multiclass', num_classes=config.NB_CLASSES, average=None)
+        f1 = F1Score(task='multiclass', num_classes=config.NB_CLASSES)
+        roc_curve = ROC(task='multiclass', num_classes=config.NB_CLASSES-1)
+        # confusion_matrix = ConfusionMatrix(task='multiclass', num_classes=config.NB_CLASSES,
+        #                                    normalize='true')
+        # conf_matrix = confusion_matrix(predMask, target).numpy()
+        # c_matrix = confusion_matrix(targetMono.squeeze(), maskMono.squeeze(), normalize='true')
 
-    if plot:
-        ax[0].matshow(conf_matrix, cmap=plt.cm.Blues, alpha=0.3)
-        for i in range(conf_matrix.shape[0]):
-            for j in range(conf_matrix.shape[1]):
-                ax[0].text(x=j, y=i, s=conf_matrix[i, j], va='center', ha='center', size='medium')
-        ax[0].set_xlabel('Predictions', fontsize="medium")
-        ax[0].set_ylabel('Actuals', fontsize="medium")
-        ax[0].set_title('Confusion Matrix', fontsize="large")
+    if config.TRAINING_TYPE != 'MULTICLASS':
+        isAx = True
+        fig = None
+        if len(ax) == 0:
+            fig, ax = plt.subplots(1, 3, figsize=(10,4))
+            isAx = False
 
-        roc_curve.update(preds, target)
-        roc_curve.plot(score=True, ax=ax[2])
+        if plot:
+            ax[0].matshow(c_matrix, cmap=plt.cm.Blues, alpha=0.3)
+            for i in range(c_matrix.shape[0]):
+                for j in range(c_matrix.shape[1]):
+                    ax[0].text(x=j, y=i, s=round(c_matrix[i, j], 4), va='center', ha='center', size='medium')
+            ax[0].set_xlabel('Predictions', fontsize="medium")
+            ax[0].set_ylabel('Actuals', fontsize="medium")
+            ax[0].set_title('Confusion Matrix', fontsize="large")
 
-        if not isAx:
-            fig.tight_layout()
-            fig.show()
+            roc_curve.update(preds, target)
+            roc_curve.plot(score=True, ax=ax[2])
 
-    return accuracy(preds, target).item(), dice(preds, target).item(), jaccard(preds, target).item(), ap(preds, target).item(), f1(preds, target).item()
+            if not isAx:
+                fig.tight_layout()
+                fig.show()
+
+    if config.TRAINING_TYPE == "BINARY":
+        return accuracy(preds, target).item(), dice(preds, target).item(), jaccard(preds, target).item(), \
+               ap(preds, target).item(), f1(preds, target).item()
+    elif config.TRAINING_TYPE == "MULTICLASS":
+        return accuracy(predMask, target).item(), jaccard(predMask, target).item(), \
+               ap(predMask.unsqueeze(0), targetMono), f1(predMask, target).item()
 
 def plot_one_mask(image, mask, pred, ax=[]):
     # Initialize our figure
@@ -88,28 +103,61 @@ def plot_multi_masks(image, masks, preds):
     figure.tight_layout()
     figure.show()
 
-def find_best_binary_threshold(target, preds, start=0., stop=1., n_thresholds=50, index='dice'):
+def find_best_binary_threshold(target, preds, start=0., stop=1., n_thresholds=50, index='accuracy'):
     thresholds = np.linspace(start, stop, n_thresholds)
     best_threshold = 0
     best_score = -np.inf
     for i in range(n_thresholds):
         c_index = None
-        if index == 'dice':
-            c_index = Dice(threshold=thresholds[i])
-        elif index == 'jaccard':
-            c_index = JaccardIndex(task='binary', threshold=thresholds[i])
-        elif index == 'f1':
-            c_index = F1Score(task='binary', threshold=thresholds[i])
-        else:
-            c_index = Accuracy(task='binary', threshold=thresholds[i])
+        if index != 'mean':
+            if index == 'dice':
+                c_index = Dice(threshold=thresholds[i])
+            elif index == 'jaccard':
+                c_index = JaccardIndex(task='binary', threshold=thresholds[i])
+            elif index == 'f1':
+                c_index = F1Score(task='binary', threshold=thresholds[i])
+            else:
+                c_index = Accuracy(task='binary', threshold=thresholds[i])
 
-        score = c_index(preds, target)
-        if score > best_score:
-            best_score = score
-            best_threshold = thresholds[i]
+            score = c_index(preds, target).item()
+            if score > best_score:
+                best_score = score
+                best_threshold = thresholds[i]
+        else:
+            return (find_best_binary_threshold(target, preds, start, stop, n_thresholds, index='dice') + \
+                   find_best_binary_threshold(target, preds, start, stop, n_thresholds, index='accuracy')) / 2
 
     return best_threshold
 
+def find_best_multiclass_threshold(model, data, start=0., stop=1., n_thresholds=50, index='accuracy'):
+    thresholds = np.linspace(start, stop, n_thresholds)
+    best_threshold = 0
+    best_score = -np.inf
+    for i in range(n_thresholds):
+        c_index = None
+        if index != 'mean':
+            if index == 'jaccard':
+                c_index = JaccardIndex(task='multiclass', num_classes=config.NB_CLASSES)
+            elif index == 'f1':
+                c_index = F1Score(task='multiclass', num_classes=config.NB_CLASSES)
+            else:
+                c_index = Accuracy(task='multiclass', num_classes=config.NB_CLASSES)
+
+            multiMask, _, predMask = make_predictions(model, data, plot=False, computeMetrics=False)
+            score = c_index(predMask, multiMask).item()
+            if score > best_score:
+                best_score = score
+                best_threshold = thresholds[i]
+        else:
+            return (find_best_multiclass_threshold(target, preds, start, stop, n_thresholds, index='jaccard') + \
+                   find_best_multiclass_threshold(target, preds, start, stop, n_thresholds, index='accuracy')) / 2
+
+    return best_threshold
+
+# multiMask : target masks
+# multiPred : predicted masks
+# mask : monochannel target mask
+# pred : monochannel predicted mask
 def make_predictions(model, data, threshold=config.PRED_THRESHOLD, plot=True, computeMetrics=True):
     # Set model to evaluation mode
     model.eval()
@@ -129,7 +177,7 @@ def make_predictions(model, data, threshold=config.PRED_THRESHOLD, plot=True, co
         if not config.INTERPOLATE:
             multiMask = torchvision.transforms.CenterCrop([multiPred.size(2), multiPred.size(3)])(multiMask)
 
-        # Group every masks in a single image and add the mask we didn't consider during training (landing-zones)
+        # Group every masks in a single image and add the mask we didn't consider directly during training (landing-zones)
         mask = None
         if config.TRAINING_TYPE == "BINARY":
             multiMask = multiMask.unsqueeze(0)
@@ -146,6 +194,16 @@ def make_predictions(model, data, threshold=config.PRED_THRESHOLD, plot=True, co
         # plt.figure()
         # plt.imshow(multiPred.squeeze(), cmap='gray')
         # plt.title("Predicted probability map for binary case")
+        # plt.show()
+
+        # plt.imshow(image.swapdims(0,1).swapdims(1,2))
+        # plt.title("Original image")
+        #
+        # plt.figure()
+        # fig, ax = plt.subplots(2, 2, figsize=(5,5))
+        # for i in range(4):
+        #     ax[i//2][i%2].imshow(multiPred[0, i,:,:], cmap='gray', vmin=0, vmax=1)
+        #     ax[i//2][i%2].set_title("Probability map for class {}".format(config.DICT_MASKS[i]))
         # plt.show()
 
         pred = torch.zeros((multiPred.shape[2:]))
@@ -170,6 +228,18 @@ def make_predictions(model, data, threshold=config.PRED_THRESHOLD, plot=True, co
             for i in range(config.NB_CLASSES):
                 predMask[i, pred == config.PLOT_MASK_VALUES[i]] = 1.
 
+        # plt.figure()
+        # # multiMask_bis = torchvision.transforms.CenterCrop([388, 276])(multiMask)
+        # pred_bis = F.interpolate(pred.swapdims(0,1).unsqueeze(0).unsqueeze(0), [388, 276], mode='nearest')
+        # pred_bis = pred_bis.squeeze(0)
+        #
+        # cropMask = torch.zeros([config.INPUT_IMAGE_HEIGHT, config.INPUT_IMAGE_WIDTH])
+        # center_x = int(config.INPUT_IMAGE_WIDTH / 2) - 1
+        # center_y = int(config.INPUT_IMAGE_HEIGHT / 2) - 1
+        # cropMask[center_y-int(multiMask.size(2)/2):center_y+int(multiMask.size(2)/2),
+        #         center_x-int(multiMask.size(3)/2):center_x+int(multiMask.size(3)/2)] = multiMask[0,0,:,:]
+        # plt.imshow(cropMask, cmap='gray', vmin=0, vmax=1)
+
         mask = mask.type(torch.IntTensor)
         multiMask = multiMask.type(torch.IntTensor)
         pred = pred.type(torch.IntTensor)
@@ -180,12 +250,17 @@ def make_predictions(model, data, threshold=config.PRED_THRESHOLD, plot=True, co
             plot_one_mask(image.swapdims(0,1).swapdims(1,2), mask.squeeze(), pred.squeeze(), ax[0])
             if config.TRAINING_TYPE == 'MULTICLASS':
                 plot_multi_masks(image.swapdims(0,1).swapdims(1,2), multiMask, predMask)
-            accuracy, dice, jaccard, ap, f1 = metrics(multiMask, multiPred, threshold, ax[1])
             error = (mask == pred) * 255
             ax[1][1].imshow(error.squeeze(), cmap='RdYlGn', vmin=0, vmax=255)
             ax[1][1].set_title("Error map")
             fig.show()
-            return accuracy, dice, jaccard, ap, f1
+
+            if config.TRAINING_TYPE == 'BINARY':
+                # return accuracy, dice, jaccard, ap, f1
+                return metrics(multiMask, multiPred, threshold, ax=ax[1])
+            elif config.TRAINING_TYPE == 'MULTICLASS':
+                return metrics(multiMask, multiPred, threshold, targetMono=mask.unsqueeze(0), maskMono=mask,
+                               predMask=predMask, ax=ax[1])
 
         elif plot and not computeMetrics:
             fig, ax = plt.subplots(1, 3, figsize=(10,4))
@@ -198,23 +273,27 @@ def make_predictions(model, data, threshold=config.PRED_THRESHOLD, plot=True, co
             accuracy, dice, jaccard, ap, f1 = metrics(multiMask, multiPred, threshold, plot=False)
             return accuracy, dice, jaccard, ap, f1
 
-        return multiMask, multiPred
+        return multiMask, multiPred, predMask
 
 if __name__ == '__main__':
-    nbExamples = 20 # Number of examples to analyze among the test set
+    nbExamples = 25 # N  umber of examples to analyze among the test set
     # 20 examples with seed 42 : 2,5 for shadow problem, 13 for precise prediction, 15 & 16 for many details non-classification
+    # 20 : not bad with SGD no interpolation
     # 20 examples with seed 16 : 1 for misprediction, 7 is a mess, 13 for persons, 20 for car with persons (and interpolation)
-    selection = [12] # Select the data you want to plot among the nbExamples ones
-    randomSeed = 16 # Seed for the random selection of those examples (42 for above selection)
-    # threshold = 0.47 # Best for accuracy
-    # threshold = 0.18 # Best for Dice, Jaccard and F1
-    threshold = 0.25 # Threshold to be considered is findBestThreshold = False
-    plot = True # Plot the image and the masks
+    # 20 examples with seed 32 : 6 good for interpolation, 18 for many people (interpolation)
+    selection = [] # Select the data you want to plot among the nbExamples ones (empty to study all examples)
+    randomSeed = 5 # Seed for the random selection of those examples (42 for above selection)
+    # threshold = 0.438 # Best for accuracy
+    # threshold = 0.271 # Best for Dice, Jaccard and F1
+    # threshold =
+    threshold = 0.2 # Threshold to be considered is findBestThreshold = False
+    plot = False # Plot the image and the masks
     computeMetrics = True # Compute and plot the metrics (Precision - Recall curve & Confusion Matrix)
-    findBestThreshold = False
+    findBestThreshold = True
 
-    # Start, stop, number of values to consider and index to use (dice, jaccard, f1 or accuracy, accuracy by default)
-    findBestThresholdArgs = (0., 1., 100, 'accuracy')
+    # Start, stop, number of values to consider and index to use (dice, jaccard, f1, accuracy or mean (= mean of dice and accuracy)
+    # -> accuracy by default)
+    findBestThresholdArgs = (0., 1., 50, 'mean')
 
     # Load the image and mask filepaths in a sorted manner
     imagePaths = None ; maskPaths = None
@@ -243,7 +322,7 @@ if __name__ == '__main__':
 
     # Picking few data to plot and analyze
     np.random.seed(randomSeed)
-    testIndex = np.random.choice(range(0,len(testSet)), nbExamples)
+    testIndex = np.random.choice(range(0,len(testSet)), size=nbExamples, replace=False)
 
     if len(selection) > 0:
         testIndex = [testIndex[i] for i in selection]
@@ -255,20 +334,25 @@ if __name__ == '__main__':
     elif config.TRAINING_TYPE == 'MULTICLASS':
         unet = torch.load(config.MULTICLASS_MODEL_PATH, map_location=torch.device(config.DEVICE)).to(config.DEVICE)
 
-    # Looking for the threshold.s which maximize the results according to a score (DICE, Jaccard, F1 or Accuracy)
+    # Looking for the threshold.s which maximize the results according to a score (DICE (only for binary), Jaccard, F1 or Accuracy)
     thresholds = []
     if findBestThreshold:
+        thresholds = []
         if config.TRAINING_TYPE == 'BINARY':
-            thresholds = []
             for ind in testIndex:
-                multiMask, multiPred = make_predictions(unet, testSet[ind], plot=False, computeMetrics=False)
+                multiMask, multiPred, _ = make_predictions(unet, testSet[ind], plot=False, computeMetrics=False)
                 thresholds.append(find_best_binary_threshold(multiMask.squeeze(0), multiPred.squeeze(0),
                                                        start=findBestThresholdArgs[0], stop=findBestThresholdArgs[1],
                                                        n_thresholds=findBestThresholdArgs[2],
                                                        index=findBestThresholdArgs[3]))
-            mean_threshold = sum(thresholds)/len(thresholds) # Generally around 0.35 for DICE, Jaccard and F1, around 0.5 for Accuracy
-            print("Best thresholds      = {}".format(thresholds))
-            print("Best thresholds mean = {}".format(mean_threshold))
+        elif config.TRAINING_TYPE == 'MULTICLASS':
+            for ind in testIndex:
+                thresholds.append(find_best_multiclass_threshold(unet, testSet[ind], start=findBestThresholdArgs[0],
+                                                 stop=findBestThresholdArgs[1], n_thresholds=findBestThresholdArgs[2],
+                                                 index=findBestThresholdArgs[3]))
+        mean_threshold = sum(thresholds)/len(thresholds) # Generally around 0.35 for DICE, Jaccard and F1, around 0.5 for Accuracy
+        print("Best thresholds      = {}".format(thresholds))
+        print("Best thresholds mean = {}".format(mean_threshold))
     else:
         thresholds = [threshold for i in range(nbExamples)]
 
@@ -277,10 +361,15 @@ if __name__ == '__main__':
         accuracies, dices, jaccards, aps, f1s = [], [], [], [], []
         for i in range(len(testIndex)):
             if computeMetrics:
-                accuracy, dice, jaccard, ap, f1 = make_predictions(unet, testSet[testIndex[i]], threshold=thresholds[i],
+                if config.TRAINING_TYPE == 'BINARY':
+                    accuracy, dice, jaccard, ap, f1 = make_predictions(unet, testSet[testIndex[i]], threshold=thresholds[i],
+                                                                   plot=plot, computeMetrics=computeMetrics)
+                elif config.TRAINING_TYPE == 'MULTICLASS':
+                    accuracy, jaccard, ap, f1 = make_predictions(unet, testSet[testIndex[i]], threshold=thresholds[i],
                                                                    plot=plot, computeMetrics=computeMetrics)
                 accuracies.append(accuracy)
-                dices.append(dice)
+                if config.TRAINING_TYPE == 'BINARY':
+                    dices.append(dice)
                 jaccards.append(jaccard)
                 aps.append(ap)
                 f1s.append(f1)
@@ -290,16 +379,22 @@ if __name__ == '__main__':
 
         if len(dices) > 0:
             print("###################### EVALUATION ######################")
-            print("Accuracies               = {}".format(accuracies))
+            # print("Accuracies               = {}".format(accuracies))
             print("Mean accuracy            = {}".format(sum(accuracies)/len(accuracies)))
-            print("Dice indexs              = {}".format(dices))
-            print("Dice mean                = {}".format(sum(dices)/len(dices)))
-            print("Jaccard indexs           = {}".format(jaccards))
+            print("Variance accuracy        = {}".format(np.std(np.array(accuracies))))
+            if(config.TRAINING_TYPE == 'BINARY'):
+                # print("Dice indexs              = {}".format(dices))
+                print("Dice mean                = {}".format(sum(dices)/len(dices)))
+                print("Dice variance            = {}".format(np.std(np.array(dices))))
+            # print("Jaccard indexs           = {}".format(jaccards))
             print("Jaccard mean             = {}".format(sum(jaccards)/len(jaccards)))
-            print("Average-Precision indexs = {}".format(aps))
+            print("Jaccard variance         = {}".format(np.std(np.array(jaccards))))
+            # print("Average-Precision indexs = {}".format(aps))
             print("Average-Precision mean   = {}".format(sum(aps)/len(aps)))
-            print("F1 scores                = {}".format(f1s))
+            print("AP variance              = {}".format(np.std(np.array(aps))))
+            # print("F1 scores                = {}".format(f1s))
             print("F1 mean                  = {}".format(sum(f1s)/len(f1s)))
+            print("F1 variance              = {}".format(np.std(np.array(f1s))))
             print("########################################################")
 
         if plot:

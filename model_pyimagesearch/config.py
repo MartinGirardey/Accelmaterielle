@@ -7,8 +7,8 @@ TRAINING_TYPE = "BINARY"
 
 CONTINUE_TRAINING = False
 
-ENCODER_CHANNELS = (3, 64, 128, 256, 512, 1024)
-DECODER_CHANNELS = (1024, 512, 256, 128, 64)
+ENCODER_CHANNELS = (3, 128, 256, 512, 1024)
+DECODER_CHANNELS = (1024, 512, 256, 128)
 
 INTERPOLATE = False
 
@@ -22,11 +22,11 @@ NUM_EPOCHS = 200
 BATCH_SIZE = 16
 
 TEST_SPLIT = 0.15
-SPLIT_SEED = 42
+SPLIT_SEED = 12
 
 # Base path of the datasets
 BINARY_DATASET_PATH = "dataset/binary_dataset/binary_dataset"
-MULTICLASS_DATASET_PATH = "dataset/classes_dataset/classes_dataset_small"
+MULTICLASS_DATASET_PATH = "dataset/classes_dataset/classes_dataset"
 
 # Define the path to the images and masks dataset
 IMAGE_BINARY_DATASET_PATH = os.path.join(BINARY_DATASET_PATH, "original_images")
